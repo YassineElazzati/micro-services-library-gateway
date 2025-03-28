@@ -1,0 +1,38 @@
+version: '3.8'
+
+services:
+  auteur-db:
+    image: postgres:15
+    container_name: auteur-db
+    environment:
+      POSTGRES_DB: auteurdb
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5433:5432"
+    volumes:
+      - auteur-data:/var/lib/postgresql/data
+    networks:
+      - library-network
+
+  livre-db:
+    image: postgres:15
+    container_name: livre-db
+    environment:
+      POSTGRES_DB: livredb
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5434:5432"
+    volumes:
+      - livre-data:/var/lib/postgresql/data
+    networks:
+      - library-network
+
+volumes:
+  auteur-data:
+  livre-data:
+
+networks:
+  library-network:
+    driver: bridge
