@@ -10,7 +10,7 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 
 @RestController
-@RequestMapping("/commandes")
+@RequestMapping("/api/commandes")
 @RequiredArgsConstructor
 public class CommandeController {
 
