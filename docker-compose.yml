@@ -1,6 +1,7 @@
 version: '3.8'
 
 services:
+  # === BASES DE DONNÉES ===
   auteur-db:
     image: postgres:15
     container_name: auteur-db
@@ -26,6 +27,41 @@ services:
       - "5434:5432"
     volumes:
       - livre-data:/var/lib/postgresql/data
+    networks:
+      - library-network
+
+  # === SERVICES SPRING BOOT ===
+  auteur-service:
+    build:
+      context: ./auteur-service
+    container_name: auteur-service
+    ports:
+      - "8081:8081"
+    depends_on:
+      - auteur-db
+    networks:
+      - library-network
+
+  livre-service:
+    build:
+      context: ./livre-service
+    container_name: livre-service
+    ports:
+      - "8082:8082"
+    depends_on:
+      - livre-db
+    networks:
+      - library-network
+
+  gateway-service:
+    build:
+      context: ./gateway-service
+    container_name: gateway-service
+    ports:
+      - "8080:8080"
+    depends_on:
+      - auteur-service
+      - livre-service
     networks:
       - library-network
 
