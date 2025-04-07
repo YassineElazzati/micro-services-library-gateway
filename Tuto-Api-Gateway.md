@@ -1,137 +1,102 @@
-# 🧠 TUTO – API Gateway avec Spring Cloud Gateway
+# 🧠 TUTO – API Gateway avec Spring Cloud Gateway (Projet complet)
 
-Ce tutoriel vous montre comment mettre en place une **API Gateway** avec **Spring Cloud Gateway**, pour diriger le trafic vers vos microservices (`auteur-service`, `livre-service`, etc.).
+Ce tutoriel vous montre comment mettre en place une **API Gateway** avec **Spring Cloud Gateway**, pour diriger le trafic vers vos microservices `auteur-service` et `livre-service` dans un projet réel.
 
-> ⚠️ Ce tutoriel n’inclut **pas encore le load balancing (LB)** avec Eureka – on le verra plus tard.
+> ⚠️ Ce tuto ne traite **pas encore du load balancing avec Eureka**. Il s'agit d'une config **statique**. La suite viendra plus tard.
 
 ---
 
 ## 🧰 Pré-requis
 
 - Java 17
-- Spring Boot 3.4.x
-- Spring Cloud 2024.x
+- Spring Boot 3.4.4
+- Spring Cloud 2024.0.1
 - Maven
-- Docker (optionnel mais conseillé)
-- Microservices déjà fonctionnels (ex: `auteur-service`, `livre-service`)
+- Docker (optionnel mais recommandé)
+- Microservices `auteur-service` (port **8081**) et `livre-service` (port **8082**)
 
 ---
 
 ## 📁 Structure du projet
 
-Voici la structure simplifiée qu’on utilise :
-
 ```
 microservices-library-gateway
-├── gateway-service
-│   ├── src
-│   │   └── main
-│   │       └── java/com/example/gateway_service/GatewayServiceApplication.java
-│   │       └── resources/application.properties
-│   └── pom.xml
+├── auteur-service (port 8081)
+├── livre-service  (port 8082)
+├── gateway-service (port 8080)
+└── docker-compose.yml
 ```
 
----
-
-## 1. 🚀 Créer le projet `gateway-service`
-
-Dans Spring Initializr (ou via Maven), créez un projet avec les **dépendances suivantes** :
-
-- `Spring Reactive Web` (`spring-boot-starter-webflux`)
-- `Spring Cloud Gateway`
-- `Spring Boot Devtools` (optionnel)
-- `Spring Boot Admin Server` (optionnel)
+Une **API Gateway** agit comme **un point d'entrée unique** dans un système de microservices. Elle intercepte les requêtes entrantes, applique des règles (filtrage, authentification, logging...) et redirige les appels vers le bon service interne.
 
 ---
 
-## 2. 🧹 Exemple de `pom.xml`
+## 1. 🚀 Créer le microservice `gateway-service`
 
-Voici un exemple prêt à l’emploi :
-
-```xml
-<dependencies>
-    <!-- WebFlux -->
-    <dependency>
-        <groupId>org.springframework.boot</groupId>
-        <artifactId>spring-boot-starter-webflux</artifactId>
-    </dependency>
-
-    <!-- Spring Cloud Gateway -->
-    <dependency>
-        <groupId>org.springframework.cloud</groupId>
-        <artifactId>spring-cloud-starter-gateway</artifactId>
-    </dependency>
-
-    <!-- DevTools (rechargement à chaud) -->
-    <dependency>
-        <groupId>org.springframework.boot</groupId>
-        <artifactId>spring-boot-devtools</artifactId>
-        <scope>runtime</scope>
-        <optional>true</optional>
-    </dependency>
-
-    <!-- Test -->
-    <dependency>
-        <groupId>org.springframework.boot</groupId>
-        <artifactId>spring-boot-starter-test</artifactId>
-        <scope>test</scope>
-    </dependency>
-</dependencies>
-
-<dependencyManagement>
-    <dependencies>
-        <dependency>
-            <groupId>org.springframework.cloud</groupId>
-            <artifactId>spring-cloud-dependencies</artifactId>
-            <version>2024.0.1</version>
-            <type>pom</type>
-            <scope>import</scope>
-        </dependency>
-    </dependencies>
-</dependencyManagement>
-```
+Via Spring Initializr, sélectionnez :
+- **Spring Reactive Web** (`spring-boot-starter-webflux`) → car Spring Cloud Gateway repose sur WebFlux (réactif).
+- **Spring Cloud Gateway** → pour le routage intelligent.
+- **Spring Boot Devtools** (optionnel) → pour le rechargement à chaud.
+- **Spring Boot Admin Server** (optionnel) → pour superviser les services.
 
 ---
 
-## 3. ⚙️ Configuration dans `application.properties`
+## 2. 🧹 Fichier `pom.xml` de `gateway-service`
 
-Voici un exemple de configuration **statique** (sans Eureka, IP/ports manuels) :
+Ce fichier Maven contient les dépendances nécessaires pour WebFlux, Gateway, Devtools et Admin Server. La section `dependencyManagement` importe la version officielle de Spring Cloud (`2024.0.1`).
+
+---
+
+## 3. ⚙️ `application.properties` de `gateway-service`
+
+Ce fichier configure le port et définit les routes à exposer dans la gateway. Chaque `route` suit cette logique :
+
+- `id` : identifiant unique de la route (utile pour le debug/logging).
+- `uri` : adresse de destination (où la requête est redirigée).
+- `predicates` : conditions d'activation (ex : path de l'URL).
 
 ```properties
-# Port de la gateway
 server.port=8080
-
-# Nom du microservice
 spring.application.name=gateway-service
+spring.main.web-application-type=reactive
 
-# Routes manuelles
 spring.cloud.gateway.routes[0].id=auteur-service
 spring.cloud.gateway.routes[0].uri=http://localhost:8081
 spring.cloud.gateway.routes[0].predicates[0]=Path=/api/auteurs/**
 
-spring.cloud.gateway.routes[1].id=livre-service
-spring.cloud.gateway.routes[1].uri=http://localhost:8082
-spring.cloud.gateway.routes[1].predicates[0]=Path=/api/clients/**, /api/commandes/**
+spring.cloud.gateway.routes[1].id=livre-auteur-service
+spring.cloud.gateway.routes[1].uri=http://localhost:8081
+spring.cloud.gateway.routes[1].predicates[0]=Path=/api/livres/**
+
+spring.cloud.gateway.routes[2].id=client-livre-service
+spring.cloud.gateway.routes[2].uri=http://localhost:8082
+spring.cloud.gateway.routes[2].predicates[0]=Path=/api/clients/**
+
+spring.cloud.gateway.routes[3].id=commande-livre-service
+spring.cloud.gateway.routes[3].uri=http://localhost:8082
+spring.cloud.gateway.routes[3].predicates[0]=Path=/api/commandes/**
+
+spring.web.resources.add-mappings=false
+spring.thymeleaf.check-template-location=false
+
+logging.level.org.springframework.cloud.gateway=DEBUG
+logging.level.org.springframework.cloud.gateway.handler.RoutePredicateHandlerMapping=TRACE
 ```
 
-> ✅ Cela veut dire que tout appel vers `http://localhost:8080/api/auteurs/**` sera redirigé vers `http://localhost:8081`
+Chaque route permet de **rediriger une requête entrante vers le bon microservice**, sans que le client ait à connaître l’adresse réelle du service.
 
 ---
 
-## 4. 🧠 Code minimal de `GatewayServiceApplication`
+## 4. 🧠 Code principal `GatewayServiceApplication.java`
+
+Voici le point d'entrée principal. L'annotation `@SpringBootApplication` lance l'application. Aucun code spécifique à Gateway n'est requis ici : tout est géré par configuration.
 
 ```java
-package com.example.gateway_service;
-
-import org.springframework.boot.SpringApplication;
-import org.springframework.boot.autoconfigure.SpringBootApplication;
-
 @SpringBootApplication
 public class GatewayServiceApplication {
-
-    public static void main(String[] args) {
-        SpringApplication.run(GatewayServiceApplication.class, args);
-    }
+  public static void main(String[] args) {
+    SpringApplication.run(GatewayServiceApplication.class, args);
+  }
 }
 ```
 
@@ -139,46 +104,56 @@ public class GatewayServiceApplication {
 
 ## 5. 🧪 Exemple de test des routes
 
-### Lancer les services :
-- `auteur-service` (sur le port `8081`)
-- `livre-service` (sur le port `8082`)
-- `gateway-service` (sur le port `8080`)
+Lancez les services suivants :
+- `auteur-service` → http://localhost:8081
+- `livre-service`  → http://localhost:8082
+- `gateway-service` → http://localhost:8080
 
-### Appeler l'API Gateway :
+### Exemples d'appels via Gateway
 
 ```http
-GET http://localhost:8080/api/auteurs
+GET  http://localhost:8080/api/auteurs
 → redirige vers http://localhost:8081/api/auteurs
 
-GET http://localhost:8080/api/clients
+POST http://localhost:8080/api/clients
 → redirige vers http://localhost:8082/api/clients
+
+GET  http://localhost:8080/api/livres/3
+→ redirige vers http://localhost:8081/api/livres/3
 ```
+
+La Gateway fonctionne comme **un proxy intelligent**. Elle permet d'unifier l'accès aux APIs et de masquer la complexité du système.
 
 ---
 
 ## ✅ Résultat attendu
 
-| Appel via Gateway                       | Redirection réelle                      |
-|----------------------------------------|------------------------------------------|
-| `GET /api/auteurs`                     | `http://localhost:8081/api/auteurs`      |
-| `POST /api/clients`                    | `http://localhost:8082/api/clients`      |
-| `DELETE /api/commandes/1`              | `http://localhost:8082/api/commandes/1`  |
+| Appel via Gateway            | Redirection réelle                      |
+|-----------------------------|------------------------------------------|
+| `/api/auteurs`             | `http://localhost:8081/api/auteurs`     |
+| `/api/livres/5`            | `http://localhost:8081/api/livres/5`    |
+| `/api/clients`             | `http://localhost:8082/api/clients`     |
+| `/api/commandes/2`         | `http://localhost:8082/api/commandes/2` |
 
 ---
 
-## 🧼 Astuce : Comment rendre ça dynamique (prochaine étape)
+## 🧼 À venir : Eureka + Load Balancing
 
-> Pour ne pas avoir à coder chaque URL en dur (IP + port), on utilisera plus tard **Eureka + load balancing automatique**.  
-> On pourra écrire des URI comme :  
-> `lb://auteur-service` ou `lb://livre-service`.
+> Actuellement, on écrit l'URI des microservices en dur (`http://localhost:8081`).  
+> Avec **Eureka**, on pourra simplement écrire : `lb://auteur-service`
 
-👉 **Mais ça, on le verra dans le prochain cours !**
+Cela permettra à la Gateway de découvrir automatiquement les instances du microservice (si on en a plusieurs), et de faire de la **répartition de charge** automatiquement.
+
+➡️ On verra ça dans le **prochain module** !
 
 ---
 
 ## 🔚 Conclusion
 
-Avec cette configuration, vous avez une **API Gateway 100% fonctionnelle**. Elle intercepte les requêtes entrantes et les redirige vers le bon microservice.
+Vous avez maintenant une **API Gateway fonctionnelle** qui agit comme une **porte d’entrée unique** vers tous vos microservices.
 
----
+✅ Elle centralise, filtre et redirige les appels.  
+✅ Elle facilite le debug, l'évolution, la sécurité.
+
+➡️ Prochaine étape : intégrer Eureka pour faire du **routage dynamique + load balancing** sans écrire d’IP ni de port à la main. 🚀
 
